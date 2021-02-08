@@ -8,11 +8,8 @@
 function output = Eval(answer,Mr,Ml,Qr,Ql,P,ref)
 data_label = string(answer(1,1));   
 m = double(string(answer(2,1))); % feature vector will have length (2m)
-low_f = double(string(answer(3,1))); % Low cutoff freq
-high_f = double(string(answer(4,1))); % High cutoff freq
-sampling_rate = double(string(answer(5,1)));
-referencing = double(string(answer(6,1))); % Non(0), CAR(1), LAP(2)
-order = double(string(answer(7,1))); % Filter order
+referencing = double(string(answer(3,1))); % Non(0), CAR(1), LAP(2)
+order = double(string(answer(4,1))); % Filter order
 
 
 %% Call true label
@@ -48,15 +45,11 @@ end
 clear true_y
 %% 
 % Load file
-if sampling_rate == 0
-    FILENAME = strcat('C:\Users\유승재\Desktop\Motor Imagery EEG data\BCICIV_1_mat\BCICIV_eval_ds1',data_label,'.mat');
-    chunk = 350;
-    fs = 100;
-else
-    FILENAME = strcat('C:\Users\유승재\Desktop\Motor Imagery EEG data\BCICIV_1eval_1000Hz_mat\BCICIV_eval_ds1',data_label,'_1000Hz.mat');
-    chunk = 3500;
-    fs = 1000;
-end
+
+FILENAME = strcat('C:\Users\유승재\Desktop\Motor Imagery EEG data\BCICIV_1_mat\BCICIV_eval_ds1',data_label,'.mat');
+chunk = 350;
+fs = 100;
+
 load(FILENAME);
 
 % Data rescale
