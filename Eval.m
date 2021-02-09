@@ -5,7 +5,7 @@
 %    Last Modified: 2020_01_27                           
 %                                                            
  % ----------------------------------------------------------------------- %
-function output = Eval(answer,Mr,Ml,Qr,Ql,P,ref)
+function [Sc, Mse] = Eval(answer,interest_freq_band,interest_P, training_data,training_label,ref)
 data_label = string(answer(1,1));   
 m = double(string(answer(2,1))); % feature vector will have length (2m)
 referencing = double(string(answer(3,1))); % Non(0), CAR(1), LAP(2)
@@ -64,15 +64,15 @@ if referencing ~= 0
 
     % common average
     if referencing == 1         
-        cnt_c = cnt(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)        
-        Means = (1/size(cnt_c,1))*sum(cnt_c);
-        for i = 1 : size(cnt_c,1)
-            cnt_c(i,:) = cnt_c(i,:) - Means; % CAR
+        cnt_y = cnt(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)        
+        Means = (1/size(cnt_y,1))*sum(cnt_y);
+        for i = 1 : size(cnt_y,1)
+            cnt_y(i,:) = cnt_y(i,:) - Means; % CAR
         end
      % LAP   
     elseif referencing == 2 
         cnt_n = myLAP(cnt,nfo); % Laplacian
-        cnt_c = cnt_n(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
+        cnt_y = cnt_n(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
     end
 else
         %%% Calculate differential voltage
@@ -80,59 +80,68 @@ else
         cnt(i,:) = cnt(i,:) - cnt(ref,:);
     end
     
-    cnt_c = cnt(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
+    cnt_y = cnt(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
 end
 
-clear cnt cnt_n
+clear cnt 
 
 %% 
-%BPF Design
-bpFilt = designfilt('bandpassfir','FilterOrder',order, ...
-         'CutoffFrequency1',low_f,'CutoffFrequency2',high_f, ...
-         'SampleRate',fs);
+for fb = 1:size(interest_freq_band,1)
+        low_f = interest_freq_band(fb,1);
+        high_f = interest_freq_band(fb,2);
+        %BPF Design
+        bpFilt = designfilt('bandpassfir','FilterOrder',order, ...
+            'CutoffFrequency1',low_f,'CutoffFrequency2',high_f, ...
+            'SampleRate',fs);
+        
+%          bpFilt = designfilt('bandpassiir','FilterOrder',order, ...
+%     'StopbandFrequency1',low_f,'StopbandFrequency2',high_f, ...
+%     'StopbandAttenuation',40,'SampleRate',fs);
 
-% Apply BPF
-for i = 1:size(cnt_c,1)
-    cnt_c(i,:) = filtfilt(bpFilt, cnt_c(i,:));
+        
+        % Apply BPF
+        for i = 1:size(cnt_y,1)
+            cnt_x(i,:) = filtfilt(bpFilt, cnt_y(i,:));            
+        end
+        filtered{fb} = cnt_x;
 end
 
 %% 
-% f1 = figure;
-% f2 = figure;
+
 score = [];
 predictions = [];
 checks = [];
 
-% For class 1
+% For class 2
+nbytes = 0;
 for j = 1 : length(B)
-    if sampling_rate == 0
-        tmp1 = round(B(j,1)/10);
-        tmp2 = round(B(j,2)/10);
-    else
-        tmp1 = B(j,1);
-        tmp2 = B(j,2);
-    end
-    E = cnt_c(:, tmp1:tmp2);
-    Z = P'*E;
+    tmp1 = round(B(j,1)/10);
+    tmp2 = round(B(j,2)/10);
     
-     % Feature vector
-    tmp_ind = size(Z,1);
-    Z_reduce = [Z(1:m,:); Z(tmp_ind-(m-1):tmp_ind,:)];
-   
-    var_vector = var(Z_reduce,0,2)';
-    var_vector = (1/sum(var_vector))*var_vector;
+%     fprintf(repmat('\b',1,nbytes));
+%     nbytes = fprintf('class 2 --> %d / %d ',j,length(B));
+    
+    for fb = 1:size(interest_freq_band,1)
+        cnt_c = filtered{fb};
+                
+        E = cnt_c(:, tmp1:tmp2);
+        Z = interest_P{fb}'*E;
         
-    fp = log(var_vector);
-    fp = fp';
-    
-    % Graphical represent
-%      figure(f1)
-%      scatter3(Z(1,:), Z(size(cnt_c,1),:),Z(2,:),'b'); hold on;
-%      figure(f2)
-%      scatter3(fp(1),fp(2),fp(6),'b'); hold on;
+        % Feature vector
+        tmp_ind = size(Z,1);
+        Z_reduce = [Z(1:m,:); Z(tmp_ind-(m-1):tmp_ind,:)];
+        
+        var_vector = var(Z_reduce,0,2)';
+        var_vector = (1/sum(var_vector))*var_vector;
+        
+        fp = log(var_vector);
+        
+        evaluation_trial(1,1+2*m*(fb-1):2*m*fb) = fp;    
+    end 
        
     % Run classifier
-    [check, prediction] = myClassifier(fp,Mr,Ml,Qr,Ql);
+    
+    [prediction] = myClassifier(evaluation_trial,training_data,training_label);
     if prediction == -1
         score = [score 1];
         
@@ -141,40 +150,41 @@ for j = 1 : length(B)
         
     end
     predictions = [predictions prediction];
-    checks = [checks check];
-    
+       
 end
 
-% For class 2
+
+nbytes = 0;
+% For class 1
 for j = 1 : length(D)
-    if sampling_rate == 0
-        tmp1 = round(D(j,1)/10);
-        tmp2 = round(D(j,2)/10);
-    else
-        tmp1 = D(j,1);
-        tmp2 = D(j,2);
-    end
-    E = cnt_c(:, tmp1:tmp2);
-    Z = P'*E;
+    tmp1 = round(D(j,1)/10);
+    tmp2 = round(D(j,2)/10);
     
-    % Feature vector
-    tmp_ind = size(Z,1);
-    Z_reduce = [Z(1:m,:); Z(tmp_ind-(m-1):tmp_ind,:)];
-   
-    var_vector = var(Z_reduce,0,2)';
-    var_vector = (1/sum(var_vector))*var_vector;
+%     fprintf(repmat('\b',1,nbytes));
+%     nbytes = fprintf('class 1 --> %d / %d ',j,length(D));
+    
+    
+    for fb = 1:size(interest_freq_band,1)
+        cnt_c = filtered{fb};
+                
+        E = cnt_c(:, tmp1:tmp2);
+        Z = interest_P{fb}'*E;
         
-    fp = log(var_vector);
-    fp = fp';
+        % Feature vector
+        tmp_ind = size(Z,1);
+        Z_reduce = [Z(1:m,:); Z(tmp_ind-(m-1):tmp_ind,:)];
+        
+        var_vector = var(Z_reduce,0,2)';
+        var_vector = (1/sum(var_vector))*var_vector;
+        
+        fp = log(var_vector);
+        
+        evaluation_trial(1,1+2*m*(fb-1):2*m*fb) = fp;    
+    end   
     
-    % Graphical represent
-%      figure(f1)
-%      scatter3(Z(1,:), Z(size(cnt_c,1),:),Z(2,:),'r'); hold on;
-%      figure(f2)
-%      scatter3(fp(1),fp(2),fp(6),'r'); hold on;
-       
+      
     % Run classifier
-    [check, prediction] = myClassifier(fp,Mr,Ml,Qr,Ql);
+    [prediction] = myClassifier(evaluation_trial,training_data,training_label);
     if prediction == 1
         score = [score 1];
         
@@ -183,13 +193,13 @@ for j = 1 : length(D)
         
     end
     predictions = [predictions prediction];
-    checks = [checks check];
-    
+       
 end
 
-% Caculation score
-output = 100*sum(score)/length(score);
 
+% Caculation score
+Sc = 100*sum(score)/length(score);
+Mse =  length(find(score == 0))*4/length(score);
 end
 % ----------------------------------------------------------------------- %
 %                               EOF

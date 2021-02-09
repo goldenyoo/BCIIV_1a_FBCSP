@@ -5,7 +5,7 @@
 %    Last Modified: 2020_01_27                           
 %                                                            
  % ----------------------------------------------------------------------- %
-function [Mr,Ml,Qr,Ql,P] = Calib(answer,ref)
+function [interest_freq_band,interest_P, training_data,training_label] = Calib(answer,ref)
 
 % Input parameters
 data_label = string(answer(1,1));
@@ -34,15 +34,15 @@ if referencing ~= 0
     
     % common average
     if referencing == 1
-        cnt_c = cnt(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
-        Means = (1/size(cnt_c,1))*sum(cnt_c);
-        for i = 1 : size(cnt_c,1)
-            cnt_c(i,:) = cnt_c(i,:) - Means; % CAR
+        cnt_y = cnt(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
+        Means = (1/size(cnt_y,1))*sum(cnt_y);
+        for i = 1 : size(cnt_y,1)
+            cnt_y(i,:) = cnt_y(i,:) - Means; % CAR
         end
         % LAP
     elseif referencing == 2
         cnt_n = myLAP(cnt,nfo); % Laplacian
-        cnt_c = cnt_n(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
+        cnt_y = cnt_n(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
     end
 else
     %%% Calculate differential voltage
@@ -50,18 +50,15 @@ else
         cnt(i,:) = cnt(i,:) - cnt(ref,:);
     end
     
-    cnt_c = cnt(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
+    cnt_y = cnt(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
 end
 
-clear cnt cnt_n
+clear cnt 
 
 %%
 FB = [[4 8];[8 12]; [12 16]; [16 20]; [20 24]; [24 28]; [28 32]; [32 36]; [36 40]];
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%for
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%each
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%freq
-feature_V = [];
 
+feature_V = [];
 
 for fb = 1:length(FB)
     low_f = FB(fb,1);
@@ -71,25 +68,35 @@ for fb = 1:length(FB)
     bpFilt = designfilt('bandpassfir','FilterOrder',order, ...
         'CutoffFrequency1',low_f,'CutoffFrequency2',high_f, ...
         'SampleRate',fs);
+
+%      bpFilt = designfilt('bandpassiir','FilterOrder',order, ...
+%     'StopbandFrequency1',low_f,'StopbandFrequency2',high_f, ...
+%     'StopbandAttenuation',40,'SampleRate',fs);
+
     
     % Apply BPF
-    for i = 1:size(cnt_c,1)
-        cnt_c(i,:) = filtfilt(bpFilt, cnt_c(i,:));
+    for i = 1:size(cnt_y,1)
+        cnt_x(i,:) = filtfilt(bpFilt, cnt_y(i,:));
     end
+    filtered{fb} = cnt_x;
+end
+
+
+%% 
+
+for fb = 1:length(FB)
+  
+    cnt_c = filtered{fb};
     
-    %% Calculate spatial filter
+    % Calculate spatial filter
     a = 0; b = 0;
     C_r = zeros(size(cnt_c,1)); C_l = zeros(size(cnt_c,1));
-    
+   
     % Training only for training data set
     for i = 1:length(mrk.pos)
         
         % One trial data
-        E = cnt_c(:,mrk.pos(1,i):mrk.pos(1,i)+chunk);
-        
-        %Centering
-        %     Means = mean(E,2);
-        %     E = E - diag(Means)*ones(size(E,1),size(E,2));
+        E = cnt_c(:,mrk.pos(1,i):mrk.pos(1,i)+chunk);        
         
         % Covariance 연산
         C = E*E'/ trace( E*E');
@@ -97,8 +104,7 @@ for fb = 1:length(FB)
         % According to its class, divide calculated covariance
         if mrk.y(1,i) == 1
             C_r = C_r+C;
-            a = a+1;
-            
+            a = a+1;            
         else
             C_l = C_l+C;
             b = b+1;
@@ -130,7 +136,7 @@ for fb = 1:length(FB)
     Sb = W*C_l*W';
     
     % EVD for transformed covariance
-    [U, phsi] = eig(Sa);
+    [U, phsi] = eig(Sa,Sa+Sb);
     
     % sort
     [d, ind] = sort(abs(diag(phsi)),'descend');
@@ -139,8 +145,9 @@ for fb = 1:length(FB)
     
     % Total Projection matrix,   Z = P'*X
     P = (U_new'*W)';
+    P_FB{fb} = P;    
     
-    %% Calculate feature vector
+    % Calculate feature vector
     for i = 1:length(mrk.pos)
         
         % One trial data
@@ -157,16 +164,15 @@ for fb = 1:length(FB)
         
         fp = log(var_vector);
         
-        feature_V(i,1+2*m*(fb-1):2*m*fb) = fp;       
-        
+        feature_V(i,1+2*m*(fb-1):2*m*fb) = fp;        
     end
 end
 
-% Caculate Mutual information 
+% Caculate Mutual information
 for j = 1:size(feature_V,2)
     f_j = feature_V(:,j);
     H_w = -(0.5*log2(0.5)+0.5*log2(0.5));
-    H_w_fj = 0;
+    
     for i = 1:size(feature_V,1)
         
         tmp1 = f_j(i) - f_j(find(mrk.y(1,:) == 1));
@@ -183,15 +189,31 @@ for j = 1:size(feature_V,2)
         
         p_w1_fji = p_hat_fji_w_1*0.5/(p_hat_fji_w_1*0.5 + p_hat_fji_w_2*0.5);
         p_w2_fji = p_hat_fji_w_2*0.5/(p_hat_fji_w_1*0.5 + p_hat_fji_w_2*0.5);
-        information = - ( p_w1_fji*log2(p_w1_fji) + p_w2_fji*log2(p_w2_fji) );
-       H_w_fj = H_w_fj + information ; 
+        H_w_fj(i,j) = - ( p_w1_fji*log2(p_w1_fji) + p_w2_fji*log2(p_w2_fji) );
     end
-    MI_j = H_w - H_w_fj;
+    MI_j = H_w - sum(H_w_fj(:,j));
     MI(1,j) = MI_j;
 end
 %%%%%%% sort 하고 index도 저장해서 나중에 써먹자
+[d, ind] = sort(MI,'descend');
+ind = ind(1:4);
+peter = [];
+for k = ind
+    peter = [peter fix(k/(2*m+1))];
+end
+interest_freq_band = FB(unique(peter)+1,:);
+interest_P = {};
 
-
+press = unique(peter)+1;
+for pt=1:length(unique(peter))
+    interest_P{pt} = P_FB{press(pt)};
+end
+training_data=[];
+for pt = unique(peter)
+    training_data = [training_data feature_V(:,1+2*m*pt:2*m*(pt+1))];
+    
+end
+training_label = mrk.y(1,:);
 end
 % ----------------------------------------------------------------------- %
 %                               EOF

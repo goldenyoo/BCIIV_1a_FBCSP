@@ -14,7 +14,7 @@ clear all
 prompt = {'Data label: ', 'Feature vector length: '};
 dlgtitle = 'Input';
 dims = [1 50];
-definput = {'a', '3'};
+definput = {'a', '2'};
 answer = inputdlg(prompt,dlgtitle,dims,definput);
 % Error detection
 if isempty(answer), error("Not enough input parameters."); end
@@ -24,7 +24,7 @@ if isempty(answer), error("Not enough input parameters."); end
 ref_method = [0]; % Non(0), CAR(1), LAP(2)
 
 % Filter order
-filt_ord = [25 ];
+filt_ord = [10 15 20 25 30 35];
 
 % Reference electrode number
 ref = 29;        %%%%%%%%%%%%%%%%%%%%%%%%%%%%% Change
@@ -34,21 +34,23 @@ for i = 1:length(ref_method)
     for j = 1:length(filt_ord)
         answer(3,1) = {ref_method(i)};
         answer(4,1) = {filt_ord(j)};
+        fprintf('Data_Label: %s\n',string(answer(1,1)));
         fprintf('Re-referencing: %d',ref_method(i));
-        fprintf(' filter_order: %d',filt_ord(j));
-        [Mr,Ml,Qr,Ql,P] = Calib(answer,ref);
-        tmp = Eval(answer,Mr,Ml,Qr,Ql,P,ref);
-        output(i,j) = tmp;
-        fprintf(' ----> score: %f\n',tmp);
+        fprintf(' filter_order: %d\n',filt_ord(j));
+        [interest_freq_band,interest_P, training_data,training_label] = Calib(answer,ref);
+        
+%         for k = 1:length(interest_freq_band)
+%             fprintf('Filter bank: %d %d\n',interest_freq_band(k,1),interest_freq_band(k,2));
+%         end
+%         
+        [score, mse] = Eval(answer,interest_freq_band,interest_P, training_data,training_label,ref);
+        
+        fprintf(' ----> score: %f\n',score);
+        fprintf(' ----> mse: %f\n\n',mse);
     end
     fprintf('\n');
 end
 
-%% Output present
-
-fprintf('Data_Label: %s\n',string(answer(1,1)));
-fprintf('BPF cutoff freq: %s ~ %s\n',string(answer(3,1)),string(answer(4,1)));
-disp(output);
 % ----------------------------------------------------------------------- %
 %                               EOF
 % ----------------------------------------------------------------------- %
