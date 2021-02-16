@@ -130,9 +130,7 @@ for j = 1 : length(B)
         % Feature vector
         tmp_ind = size(Z,1);
         Z_reduce = [Z(1:m,:); Z(tmp_ind-(m-1):tmp_ind,:)];
-        
-%         var_vector = var(Z_reduce,0,2)';
-%         var_vector = (1/sum(var_vector))*var_vector;
+
         var_vector = diag(Z_reduce*Z_reduce')/trace(Z_reduce*Z_reduce');
         fp = log(var_vector);
         
@@ -159,11 +157,7 @@ nbytes = 0;
 for j = 1 : length(D)
     tmp1 = round(D(j,1)/10);
     tmp2 = round(D(j,2)/10);
-    
-%     fprintf(repmat('\b',1,nbytes));
-%     nbytes = fprintf('class 1 --> %d / %d ',j,length(D));
-    
-    
+        
     for fb = 1:size(interest_freq_band,1)
         cnt_c = filtered{fb};
                 
@@ -173,9 +167,6 @@ for j = 1 : length(D)
         % Feature vector
         tmp_ind = size(Z,1);
         Z_reduce = [Z(1:m,:); Z(tmp_ind-(m-1):tmp_ind,:)];
-        
-%         var_vector = var(Z_reduce,0,2)';
-%         var_vector = (1/sum(var_vector))*var_vector;
 
         var_vector = diag(Z_reduce*Z_reduce')/trace(Z_reduce*Z_reduce');        
         fp = log(var_vector);

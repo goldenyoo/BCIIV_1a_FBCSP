@@ -2,7 +2,7 @@
 %    File_name: Calib.m
 %    Programmer: Seungjae Yoo                             
 %                                           
-%    Last Modified: 2020_02_10                           
+%    Last Modified: 2020_02_16                           
 %                                                            
  % ----------------------------------------------------------------------- %
 function [interest_freq_band,interest_P, training_data,training_label] = Calib(answer,ref)
@@ -169,11 +169,14 @@ for fb = 1:length(FB)
     end
 end
 
+
+
 % Caculate Mutual information
 for j = 1:size(feature_V,2)
     f_j = feature_V(:,j);
     H_w = -(0.5*log2(0.5)+0.5*log2(0.5));
     
+    p_fj_w_1 = 1;  p_fj_w_2 = 1;
     for i = 1:size(feature_V,1)
         
         tmp1 = f_j(i) - f_j(find(mrk.y(1,:) == 1));
@@ -188,38 +191,63 @@ for j = 1:size(feature_V,2)
         p_hat_fji_w_1 = (1/a)*sum(pi_1);
         p_hat_fji_w_2 = (1/b)*sum(pi_2);
         
-        p_w1_fji = p_hat_fji_w_1*0.5/(p_hat_fji_w_1*0.5 + p_hat_fji_w_2*0.5);
-        p_w2_fji = p_hat_fji_w_2*0.5/(p_hat_fji_w_1*0.5 + p_hat_fji_w_2*0.5);
-        tq = - ( p_w1_fji*log2(p_w1_fji) + p_w2_fji*log2(p_w2_fji) );
-        if isnan(tq)
-            tq = 0;
-        end
-        H_w_fj(i,j) = tq;
+        p_fj_w_1 = p_fj_w_1*p_hat_fji_w_1;
+        p_fj_w_2 = p_fj_w_2*p_hat_fji_w_2;
     end
-    MI_j = H_w - sum(H_w_fj(:,j));
+    
+    p_w_1_fj = p_fj_w_1*0.5/(p_fj_w_1*0.5 + p_fj_w_2*0.5);
+    p_w_2_fj = p_fj_w_2*0.5/(p_fj_w_1*0.5 + p_fj_w_2*0.5);    
+    
+    H_w_fj = -(p_w_1_fj*log2(p_w_1_fj) + p_w_2_fj*log2(p_w_2_fj));
+    
+    if isnan(H_w_fj)
+        H_w_fj = 0;
+    end
+    
+    H_w_f(1,j) = H_w_fj;
+    MI_j = H_w - H_w_fj;
+    
     MI(1,j) = MI_j;
 end
 %%%%%%% sort 하고 index도 저장해서 나중에 써먹자
-[d, ind] = sort(MI,'descend');
-ind = ind(1:4);
-% 
-% disp(d(1:4));
-% disp(ind);
+% [d, ind] = sort(MI,'descend');
+% ind = ind(1:4);
+
+[d, ind_tmp] = sort(H_w_f);
+ind = ind_tmp(1:4);
 
 peter = [];
 for k = ind
-    peter = [peter fix(k/(2*m+1))];
+    if fix((k-1)/(2*m))==0
+        peter = [peter 1];
+    elseif fix((k-1)/(2*m))==1
+        peter = [peter 2];
+    elseif fix((k-1)/(2*m))==2
+        peter = [peter 3];
+    elseif fix((k-1)/(2*m))==3
+        peter = [peter 4];
+    elseif fix((k-1)/(2*m))==4
+        peter = [peter 5];
+    elseif fix((k-1)/(2*m))==5
+        peter = [peter 6];
+    elseif fix((k-1)/(2*m))==6
+        peter = [peter 7];
+    elseif fix((k-1)/(2*m))==7
+        peter = [peter 8];
+    elseif fix((k-1)/(2*m))==8
+        peter = [peter 9];
+    end        
 end
-interest_freq_band = FB(unique(peter)+1,:);
+interest_freq_band = FB(unique(peter),:);
 interest_P = {};
 
-press = unique(peter)+1;
-for pt=1:length(unique(peter))
+press = unique(peter);
+for pt=1:length(press)
     interest_P{pt} = P_FB{press(pt)};
 end
 training_data=[];
-for pt = unique(peter)
-    training_data = [training_data feature_V(:,1+2*m*pt:2*m*(pt+1))];
+for pt = press
+    training_data = [training_data feature_V(:,1+2*m*(pt-1):2*m*(pt))];
     
 end
 training_label = mrk.y(1,:);

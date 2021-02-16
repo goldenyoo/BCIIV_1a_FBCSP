@@ -39,7 +39,7 @@ for i = 1:length(ref_method)
         fprintf(' filter_order: %d\n',filt_ord(j));
         [interest_freq_band,interest_P, training_data,training_label] = Calib(answer,ref);
         
-        for k = 1:length(interest_freq_band)
+        for k = 1:size(interest_freq_band,1)
             fprintf('Filter bank: %d %d\n',interest_freq_band(k,1),interest_freq_band(k,2));
         end
         
