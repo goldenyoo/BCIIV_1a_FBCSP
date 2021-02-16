@@ -2,7 +2,7 @@
 %    File_name: Eval.m
 %    Programmer: Seungjae Yoo                             
 %                                           
-%    Last Modified: 2020_01_27                           
+%    Last Modified: 2020_02_10                           
 %                                                            
  % ----------------------------------------------------------------------- %
 function [Sc, Mse] = Eval(answer,interest_freq_band,interest_P, training_data,training_label,ref)
@@ -131,9 +131,9 @@ for j = 1 : length(B)
         tmp_ind = size(Z,1);
         Z_reduce = [Z(1:m,:); Z(tmp_ind-(m-1):tmp_ind,:)];
         
-        var_vector = var(Z_reduce,0,2)';
-        var_vector = (1/sum(var_vector))*var_vector;
-        
+%         var_vector = var(Z_reduce,0,2)';
+%         var_vector = (1/sum(var_vector))*var_vector;
+        var_vector = diag(Z_reduce*Z_reduce')/trace(Z_reduce*Z_reduce');
         fp = log(var_vector);
         
         evaluation_trial(1,1+2*m*(fb-1):2*m*fb) = fp;    
@@ -174,9 +174,10 @@ for j = 1 : length(D)
         tmp_ind = size(Z,1);
         Z_reduce = [Z(1:m,:); Z(tmp_ind-(m-1):tmp_ind,:)];
         
-        var_vector = var(Z_reduce,0,2)';
-        var_vector = (1/sum(var_vector))*var_vector;
-        
+%         var_vector = var(Z_reduce,0,2)';
+%         var_vector = (1/sum(var_vector))*var_vector;
+
+        var_vector = diag(Z_reduce*Z_reduce')/trace(Z_reduce*Z_reduce');        
         fp = log(var_vector);
         
         evaluation_trial(1,1+2*m*(fb-1):2*m*fb) = fp;    

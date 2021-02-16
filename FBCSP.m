@@ -1,8 +1,8 @@
 % ----------------------------------------------------------------------- %
-%    File_name: CSP.m
+%    File_name: FBCSP.m
 %    Programmer: Seungjae Yoo                             
 %                                           
-%    Last Modified: 2020_01_27                            
+%    Last Modified: 2020_02_10                            
 %                                                            
  % ----------------------------------------------------------------------- %
 
@@ -21,7 +21,7 @@ if isempty(answer), error("Not enough input parameters."); end
 
 %% Conditions
 % Rereferencing method 
-ref_method = [0]; % Non(0), CAR(1), LAP(2)
+ref_method = [0 1 2]; % Non(0), CAR(1), LAP(2)
 
 % Filter order
 filt_ord = [10 15 20 25 30 35];
@@ -39,18 +39,19 @@ for i = 1:length(ref_method)
         fprintf(' filter_order: %d\n',filt_ord(j));
         [interest_freq_band,interest_P, training_data,training_label] = Calib(answer,ref);
         
-%         for k = 1:length(interest_freq_band)
-%             fprintf('Filter bank: %d %d\n',interest_freq_band(k,1),interest_freq_band(k,2));
-%         end
-%         
+        for k = 1:length(interest_freq_band)
+            fprintf('Filter bank: %d %d\n',interest_freq_band(k,1),interest_freq_band(k,2));
+        end
+        
         [score, mse] = Eval(answer,interest_freq_band,interest_P, training_data,training_label,ref);
         
-        fprintf(' ----> score: %f\n',score);
-        fprintf(' ----> mse: %f\n\n',mse);
+        fprintf(' ----> score: %f\n\n',score);
+%         fprintf(' ----> mse: %f\n\n',mse);
+         output(i,j) = score;
     end
     fprintf('\n');
 end
-
+disp(output);
 % ----------------------------------------------------------------------- %
 %                               EOF
 % ----------------------------------------------------------------------- %

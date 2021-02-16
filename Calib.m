@@ -2,7 +2,7 @@
 %    File_name: Calib.m
 %    Programmer: Seungjae Yoo                             
 %                                           
-%    Last Modified: 2020_01_27                           
+%    Last Modified: 2020_02_10                           
 %                                                            
  % ----------------------------------------------------------------------- %
 function [interest_freq_band,interest_P, training_data,training_label] = Calib(answer,ref)
@@ -159,9 +159,10 @@ for fb = 1:length(FB)
         % Feature vector
         tmp_ind = size(Z,1);
         Z_reduce = [Z(1:m,:); Z(tmp_ind-(m-1):tmp_ind,:)];
-        var_vector = var(Z_reduce,0,2)';
-        var_vector = (1/sum(var_vector))*var_vector;
+%         var_vector = var(Z_reduce,0,2)';
+%         var_vector = (1/sum(var_vector))*var_vector;
         
+        var_vector = diag(Z_reduce*Z_reduce')/trace(Z_reduce*Z_reduce');
         fp = log(var_vector);
         
         feature_V(i,1+2*m*(fb-1):2*m*fb) = fp;        
@@ -189,7 +190,11 @@ for j = 1:size(feature_V,2)
         
         p_w1_fji = p_hat_fji_w_1*0.5/(p_hat_fji_w_1*0.5 + p_hat_fji_w_2*0.5);
         p_w2_fji = p_hat_fji_w_2*0.5/(p_hat_fji_w_1*0.5 + p_hat_fji_w_2*0.5);
-        H_w_fj(i,j) = - ( p_w1_fji*log2(p_w1_fji) + p_w2_fji*log2(p_w2_fji) );
+        tq = - ( p_w1_fji*log2(p_w1_fji) + p_w2_fji*log2(p_w2_fji) );
+        if isnan(tq)
+            tq = 0;
+        end
+        H_w_fj(i,j) = tq;
     end
     MI_j = H_w - sum(H_w_fj(:,j));
     MI(1,j) = MI_j;
@@ -197,6 +202,10 @@ end
 %%%%%%% sort 하고 index도 저장해서 나중에 써먹자
 [d, ind] = sort(MI,'descend');
 ind = ind(1:4);
+% 
+% disp(d(1:4));
+% disp(ind);
+
 peter = [];
 for k = ind
     peter = [peter fix(k/(2*m+1))];

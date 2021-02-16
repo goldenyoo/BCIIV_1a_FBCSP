@@ -1,3 +1,10 @@
+% ----------------------------------------------------------------------- %
+%    File_name: myClassifier.m
+%    Programmer: Seungjae Yoo                             
+%                                           
+%    Last Modified: 2020_02_10                            
+%                                                            
+ % ----------------------------------------------------------------------- %
 function [result] = myClassifier(evaluation_trial,training_data,training_label)
     a= 100;
     b=100;
