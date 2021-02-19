@@ -2,7 +2,7 @@
 %    File_name: FBCSP.m
 %    Programmer: Seungjae Yoo                             
 %                                           
-%    Last Modified: 2020_02_10                            
+%    Last Modified: 2020_02_18                            
 %                                                            
  % ----------------------------------------------------------------------- %
 
@@ -24,7 +24,7 @@ if isempty(answer), error("Not enough input parameters."); end
 ref_method = [0 1 2]; % Non(0), CAR(1), LAP(2)
 
 % Filter order
-filt_ord = [10 15 20 25 30 35];
+filt_ord = [14]; %%%%%%%%%%%%%%%%%%%%%% Change
 
 % Reference electrode number
 ref = 29;        %%%%%%%%%%%%%%%%%%%%%%%%%%%%% Change

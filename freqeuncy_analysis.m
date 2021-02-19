@@ -3,10 +3,10 @@ close all
 clear all
 
 % Ask user for input parameters
-prompt = {'Data label: ', 'Feature vector length: ', 'Re-referencing: 0 (Non),1 (CAR), 2 (LAP)', 'BFP order'};
+prompt = {'Data label: '};
 dlgtitle = 'Input';
 dims = [1 50];
-definput = {'a', '3', '1','20'};
+definput = {'a'};
 answer = inputdlg(prompt,dlgtitle,dims,definput);
 
 
@@ -15,122 +15,109 @@ if isempty(answer), error("Not enough input parameters."); end
 
 % Input parameters
 data_label = string(answer(1,1));   % Calib_ds1 + "data_label"
-m = double(string(answer(2,1))); % feature vector will have length (2m)
-referencing = double(string(answer(3,1)));
-order = double(string(answer(4,1)));
 
-tmp = ["a", "b", "f", "g"];
 
-% for label = 1: length(tmp)
-%     data_label = tmp(label);
+
+ref=29;
+
 
 % Load file
 FILENAME = strcat('C:\Users\유승재\Desktop\Motor Imagery EEG data\BCICIV_1_mat\BCICIV_calib_ds1',data_label,'.mat');
+% FILENAME = strcat('C:\Users\유승재\Desktop\Motor Imagery EEG data\BCICIV_1_mat\BCICIV_eval_ds1',data_label,'.mat');
 load(FILENAME);
 
 % Data rescale
 cnt= 0.1*double(cnt);
 cnt = cnt';
 
-% Use designated electrode (C3, C4)
-cnt_c = cnt(3:55,:);
-
 %% Preprocessing
-if referencing ~= 0
-    %%% Calculate differential voltage
-    for i = 1 : size(cnt_c,1)
-        cnt_c(i,:) = cnt_c(i,:) - cnt(29,:);
-    end
 
-    
-    if referencing == 1 % common average
-        Means = (1/size(cnt_c,1))*sum(cnt_c);
-        for i = 1 : size(cnt_c,1)
-            cnt_c(i,:) = cnt_c(i,:) - Means;
-        end
-    elseif referencing == 2 % LAP
-        %%%
-    end
+%%% Calculate differential voltage
+for i = 1 : size(cnt,1)
+    cnt_k(i,:) = cnt(i,:) - cnt(ref,:);
 end
 
+% common average
 
-
-%% 
-f1 = figure;
-f2 = figure;
-f3 = figure;
-f4 = figure;
-% for i = 1:length(mrk.pos)  
-for i = 1:4 
-    
-    % One trial data
-    E = cnt_c(:,mrk.pos(1,i):mrk.pos(1,i)+350); 
-    E = E.^2;
-    E = sum(E);
-    
-    %Plot freqeuncy analysis
-    if i == 1
-        figure(f1);        
-     elseif i==2
-        figure(f2);
-     elseif i==3
-         figure(f3);
-     else
-         figure(f4);
-    end 
-    subplot(2,1,1);
-    sinad(E(1,:),100);
-%     subplot(2,2,3);
-%     sinad(E(2,:),100);
-    % According to its class, divide calculated covariance
-    if mrk.y(1,i) == 1 
-        %
-    else
-        %
-    end
+cnt_y = cnt_k(3:55,:); % Exclude electrode (AF3, AF4, O1, O2, PO1, PO2)
+Means = (1/size(cnt_y,1))*sum(cnt_y);
+for i = 1 : size(cnt_y,1)
+    cnt_y(i,:) = cnt_y(i,:) - Means; % CAR
 end
+cnt_yn(3:55,:) = cnt_y;
+cnt_yn(56:59,:) = 0;
 
 
-%% 
-%BPF Design
-bpFilt = designfilt('bandpassfir','FilterOrder',order, ...
-         'CutoffFrequency1',8,'CutoffFrequency2',30, ...
-         'SampleRate',100);
+cnt_n = myLAP(cnt,nfo); % Laplacian
+
+   bpFilt = designfilt('bandpassiir','SampleRate',100,'PassbandFrequency1',8, ...
+    'PassbandFrequency2',12,'StopbandFrequency1',8-2,'StopbandFrequency2',12+2, ...
+    'StopbandAttenuation1',60,'StopbandAttenuation2',60, 'PassbandRipple',1,'DesignMethod','cheby2');
 
 % Apply BPF
-for i = 1:size(cnt_c,1)
-    cnt_c(i,:) = filtfilt(bpFilt, cnt_c(i,:));
+for i = 1:size(cnt_n,1)
+    cnt_x_CAR(i,:) = filtfilt(bpFilt, cnt_yn(i,:));
 end
+
+% Apply BPF
+for i = 1:size(cnt_n,1)
+    cnt_x_NON(i,:) = filtfilt(bpFilt, cnt_k(i,:));
+end
+
+% Apply BPF
+for i = 1:size(cnt_n,1)
+    cnt_x_LAP(i,:) = filtfilt(bpFilt, cnt_n(i,:));
+end
+
 %% 
-% for i = 1:length(mrk.pos)  
-for i = 1:4 
+%%%%%% cnt, cnt_k, cnt_yn, cnt_n
+
+% for i = [27 31] 
+for i = 3:55
+%     time = 0:1/100:(190594-1)/100; 
     
-    % One trial data
-    E = cnt_c(:,mrk.pos(1,i):mrk.pos(1,i)+350);   
-    E = E.^2;
-    E = sum(E);
+%     figure
+%     subplot(4,1,1)
+%     sinad(cnt_k(i,:),100);
+%     title("Differential")
+%     legend('off')
+%     
+%     subplot(4,1,2)
+%     sinad(cnt_x_10(i,:),100);
+%     title("Order: 10")
+%     legend('off')
+%     
+%     subplot(4,1,3)
+%     sinad(cnt_x_15(i,:),100);
+%     title("Order: 15")
+%     legend('off')
+%     
+%     subplot(4,1,4)
+%     sinad(cnt_x_30(i,:),100);
+%     title("Order: 30")
+%     legend('off')
+
+    figure
+    subplot(4,1,1)
+    sinad(cnt(i,:),100);
+    title("Raw")
+    legend('off')
     
-    %Plot freqeuncy analysis
-     if i == 1
-        figure(f1);        
-     elseif i==2
-        figure(f2);
-     elseif i==3
-         figure(f3);
-     else
-         figure(f4);
-    end 
-    subplot(2,1,2);
-    sinad(E(1,:),100);
-%     subplot(2,2,4);
-%     sinad(E(2,:),100);
-    % According to its class, divide calculated covariance
-    if mrk.y(1,i) == 1 
-        %
-    else
-        %
-    end
+    subplot(4,1,2)
+    sinad(cnt_x_NON(i,:),100);
+    title("NON")
+    legend('off')
+    
+    subplot(4,1,3)
+    sinad(cnt_x_CAR(i,:),100);
+    title("CAR")
+    legend('off')
+    
+    subplot(4,1,4)
+    sinad(cnt_x_LAP(i,:),100);
+    title("LAP")  
+    legend('off')
+    
+    sgtitle(nfo.clab{i});
+    
 end
-% end
-fprintf('Data label: %s\n',data_label);
-fprintf('Filter order: %d\n',order);

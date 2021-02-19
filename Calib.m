@@ -2,7 +2,7 @@
 %    File_name: Calib.m
 %    Programmer: Seungjae Yoo                             
 %                                           
-%    Last Modified: 2020_02_16                           
+%    Last Modified: 2020_02_18                           
 %                                                            
  % ----------------------------------------------------------------------- %
 function [interest_freq_band,interest_P, training_data,training_label] = Calib(answer,ref)
@@ -56,7 +56,9 @@ end
 clear cnt 
 
 %%
-FB = [[4 8];[8 12]; [12 16]; [16 20]; [20 24]; [24 28]; [28 32]; [32 36]; [36 40]];
+% FB = [[4 8];[10 14]; [12 16]; [16 20]; [20 24]; [24 28]; [28 32]; [32 36]; [36 40]];
+% FB = [[4 8];[8 12]; [12 16]; [16 20]];
+FB = [[8 10]; [10 12]; [12 14]; [14 16]];
 
 feature_V = [];
 
@@ -65,14 +67,17 @@ for fb = 1:length(FB)
     high_f = FB(fb,2);
     
     %BPF Design
-    bpFilt = designfilt('bandpassfir','FilterOrder',order, ...
-        'CutoffFrequency1',low_f,'CutoffFrequency2',high_f, ...
-        'SampleRate',fs);
+%     bpFilt = designfilt('bandpassfir','FilterOrder',order, ...
+%         'CutoffFrequency1',low_f,'CutoffFrequency2',high_f, ...
+%         'SampleRate',fs);
 
 %      bpFilt = designfilt('bandpassiir','FilterOrder',order, ...
 %     'StopbandFrequency1',low_f,'StopbandFrequency2',high_f, ...
 %     'StopbandAttenuation',40,'SampleRate',fs);
-
+    
+    bpFilt = designfilt('bandpassiir','SampleRate',fs,'PassbandFrequency1',low_f, ...
+    'PassbandFrequency2',high_f,'StopbandFrequency1',low_f-2,'StopbandFrequency2',high_f+2, ...
+    'StopbandAttenuation1',40,'StopbandAttenuation2',40, 'PassbandRipple',1,'DesignMethod','cheby2');
     
     % Apply BPF
     for i = 1:size(cnt_y,1)
@@ -209,12 +214,10 @@ for j = 1:size(feature_V,2)
     
     MI(1,j) = MI_j;
 end
-%%%%%%% sort 하고 index도 저장해서 나중에 써먹자
-% [d, ind] = sort(MI,'descend');
-% ind = ind(1:4);
+
 
 [d, ind_tmp] = sort(H_w_f);
-ind = ind_tmp(1:4);
+ind = ind_tmp(1:2); %%%%%%%%%%%%%%%% Change number of k %%%%%%%%%%%%%
 
 peter = [];
 for k = ind
@@ -238,10 +241,15 @@ for k = ind
         peter = [peter 9];
     end        
 end
-interest_freq_band = FB(unique(peter),:);
+
+% press = unique([peter]);
+% press = unique([peter 2]); %%%%%%%%%%%%%% If you want 8~12Hz always included
+press = [1 2];
+
+interest_freq_band = FB(press,:);
 interest_P = {};
 
-press = unique(peter);
+
 for pt=1:length(press)
     interest_P{pt} = P_FB{press(pt)};
 end
